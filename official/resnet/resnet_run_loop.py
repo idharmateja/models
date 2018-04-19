@@ -169,7 +169,7 @@ def learning_rate_with_decay(
 
 def resnet_model_fn(features, labels, mode, model_class,
                     resnet_size, weight_decay, learning_rate_fn, momentum,
-                    data_format, version, loss_filter_fn=None, multi_gpu=False):
+                    data_format, version, loss_filter_fn=None, multi_gpu=False, pruning_params=None):
   """Shared functionality for different resnet model_fns.
 
   Initializes the ResnetModel representing the model layers
@@ -240,6 +240,32 @@ def resnet_model_fn(features, labels, mode, model_class,
       [tf.nn.l2_loss(v) for v in tf.trainable_variables()
        if loss_filter_fn(v.name)])
 
+  # **********************************************************
+  # Loading mask dictionary
+  import pickle
+
+  BLOCK_HEIGHT = pruning_params["BLOCK_HEIGHT"]
+  BLOCK_WIDTH = pruning_params["BLOCK_WIDTH"]
+  PRUNING_PERC = pruning_params["PRUNING_PERC"]
+  
+  fpath =  "masks/resnet50_%d_%d_%.2f_mask.pickle"%(BLOCK_HEIGHT, BLOCK_WIDTH, PRUNING_PERC)
+  mask_file = open(fpath, 'rb')
+  mask_dict = pickle.load(mask_file)
+  mask_file.close()
+  #print(mask_dict.keys())
+  #print([v.name for v in tf.trainable_variables()])
+
+  mask_ops = []
+  for v in tf.trainable_variables():
+    if len(v.shape) == 4:
+       layer_mask = mask_dict[v.name]
+       mask = tf.convert_to_tensor(layer_mask)
+       #mask = tf.constant(1.0,shape=v.shape)
+       masking_op = tf.assign(v,tf.multiply(mask,v))
+       mask_ops.append(masking_op)
+
+  # *********************************************************
+
   if mode == tf.estimator.ModeKeys.TRAIN:
     global_step = tf.train.get_or_create_global_step()
 
@@ -258,9 +284,9 @@ def resnet_model_fn(features, labels, mode, model_class,
       optimizer = tf.contrib.estimator.TowerOptimizer(optimizer)
 
     update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-    train_op = tf.group(optimizer.minimize(loss, global_step), update_ops)
+    train_op = tf.group(optimizer.minimize(loss, global_step), update_ops, mask_ops)
   else:
-    train_op = None
+    train_op = tf.group(mask_ops)
 
   accuracy = tf.metrics.accuracy(
       tf.argmax(labels, axis=1), predictions['classes'])
@@ -337,13 +363,32 @@ def resnet_main(flags, model_function, input_function):
           'batch_size': flags.batch_size,
           'multi_gpu': flags.multi_gpu,
           'version': flags.version,
+	  'block_height': flags.block_height,
+	  'block_width' : flags.block_width,
+          'pruning_perc': flags.pruning_perc,
+	  'decay_scale' : flags.decay_scale,
       })
 
+  
+  print('Initial evaluation.')
+  # Evaluate the model and print results
+  def input_fn_eval_init():
+    return input_function(False, flags.data_dir, flags.batch_size,
+                          1, flags.num_parallel_calls, flags.multi_gpu)
+
+  # flags.max_train_steps is generally associated with testing and profiling.
+  # As a result it is frequently called with synthetic data, which will
+  # iterate forever. Passing steps=flags.max_train_steps allows the eval
+  # (which is generally unimportant in those circumstances) to terminate.
+  # Note that eval will run for max_train_steps each loop, regardless of the
+  # global_step count.
+  eval_results = classifier.evaluate(input_fn=input_fn_eval_init,
+                                     steps=flags.max_train_steps)
+  print("Testing",eval_results)
+  
   for _ in range(flags.train_epochs // flags.epochs_between_evals):
     train_hooks = hooks_helper.get_train_hooks(flags.hooks,
                                                batch_size=flags.batch_size)
-
-    print('Starting a training cycle.')
 
     def input_fn_train():
       return input_function(True, flags.data_dir, flags.batch_size,
@@ -352,7 +397,7 @@ def resnet_main(flags, model_function, input_function):
 
     classifier.train(input_fn=input_fn_train, hooks=train_hooks,
                      max_steps=flags.max_train_steps)
-
+   
     print('Starting to evaluate.')
     # Evaluate the model and print results
     def input_fn_eval():
@@ -367,8 +412,8 @@ def resnet_main(flags, model_function, input_function):
     # global_step count.
     eval_results = classifier.evaluate(input_fn=input_fn_eval,
                                        steps=flags.max_train_steps)
-    print(eval_results)
-
+    print("Testing",eval_results)
+    
 
 class ResnetArgParser(argparse.ArgumentParser):
   """Arguments for configuring and running a Resnet Model.
@@ -393,3 +438,26 @@ class ResnetArgParser(argparse.ArgumentParser):
         help='[default: %(default)s] The size of the ResNet model to use.',
         metavar='<RS>' if resnet_size_choices is None else None
     )
+ 
+    # New arguments
+    self.add_argument(
+	'--block_height', '-bh', type=int, default=1,
+	help="Block height in pruning"
+    )
+
+    self.add_argument(
+	'--block_width', '-bw', type=int, default=1,
+	help="Block width in pruning"
+    )
+
+    self.add_argument(
+	'--pruning_perc', '-sp', type=float, default=90.0,
+	help="Pruning percentage in Convolution layers"
+    )
+
+    self.add_argument(
+	'--decay_scale', '-bd', type=float, default=1e-2,
+	help="Base learning rate for retraining sparse CNNs"
+    )
+
+
