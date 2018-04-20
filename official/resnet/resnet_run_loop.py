@@ -159,7 +159,7 @@ def learning_rate_with_decay(
   # Multiply the learning rate by 0.1 at 100, 150, and 200 epochs.
   boundaries = [int(batches_per_epoch * epoch) for epoch in boundary_epochs]
   vals = [initial_learning_rate * decay for decay in decay_rates]
-
+  
   def learning_rate_fn(global_step):
     global_step = tf.cast(global_step, tf.int32)
     return tf.train.piecewise_constant(global_step, boundaries, vals)
@@ -456,7 +456,7 @@ class ResnetArgParser(argparse.ArgumentParser):
     )
 
     self.add_argument(
-	'--decay_scale', '-bd', type=float, default=1e-2,
+	'--decay_scale', '-bd', type=float, default=1,
 	help="Base learning rate for retraining sparse CNNs"
     )
 
