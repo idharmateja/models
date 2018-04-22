@@ -273,8 +273,8 @@ def imagenet_model_fn(features, labels, mode, params):
       #decay_rates=[1, 0.1, 0.01, 0.001, 1e-4])
   """
 
-  boundary_epochs = [110,120,130]
-  decay_rates = [1, 0.01, 0.001, 0.0001]
+  boundary_epochs = [115,130,140]
+  decay_rates = [1, 0.1, 0.01, 0.001]
 
   # Scaling decay_rates
   decay_scale = params["decay_scale"]
