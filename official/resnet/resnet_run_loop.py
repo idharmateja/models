@@ -247,8 +247,9 @@ def resnet_model_fn(features, labels, mode, model_class,
   BLOCK_HEIGHT = pruning_params["BLOCK_HEIGHT"]
   BLOCK_WIDTH = pruning_params["BLOCK_WIDTH"]
   PRUNING_PERC = pruning_params["PRUNING_PERC"]
+  ZAGGED = pruning_params["ZAGGED"]
   
-  fpath =  "masks/resnet50_%d_%d_%.2f_mask.pickle"%(BLOCK_HEIGHT, BLOCK_WIDTH, PRUNING_PERC)
+  fpath =  "masks/resnet50_%d_%d_%.2f_%r_mask.pickle"%(BLOCK_HEIGHT, BLOCK_WIDTH, PRUNING_PERC, ZAGGED)
   mask_file = open(fpath, 'rb')
   mask_dict = pickle.load(mask_file)
   mask_file.close()
@@ -363,10 +364,11 @@ def resnet_main(flags, model_function, input_function):
           'batch_size': flags.batch_size,
           'multi_gpu': flags.multi_gpu,
           'version': flags.version,
-	  'block_height': flags.block_height,
-	  'block_width' : flags.block_width,
+	  	  'block_height': flags.block_height,
+		  'block_width' : flags.block_width,
           'pruning_perc': flags.pruning_perc,
-	  'decay_scale' : flags.decay_scale,
+	  	  'decay_scale' : flags.decay_scale,
+		  'zagged' : flags.zagged,
       })
 
   
@@ -448,6 +450,11 @@ class ResnetArgParser(argparse.ArgumentParser):
     self.add_argument(
 	'--block_width', '-bw', type=int, default=1,
 	help="Block width in pruning"
+    )
+
+    self.add_argument(
+	'--zagged', action="store_true",
+	help="Is block zagged?"
     )
 
     self.add_argument(

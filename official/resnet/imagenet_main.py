@@ -273,7 +273,7 @@ def imagenet_model_fn(features, labels, mode, params):
       #decay_rates=[1, 0.1, 0.01, 0.001, 1e-4])
   """
 
-  boundary_epochs = [115,130,140]
+  boundary_epochs = [110,120,130]
   decay_rates = [1, 0.1, 0.01, 0.001]
 
   # Scaling decay_rates
@@ -288,6 +288,7 @@ def imagenet_model_fn(features, labels, mode, params):
 
 
   pruning_params = {"BLOCK_HEIGHT":params["block_height"],"BLOCK_WIDTH":params["block_width"],"PRUNING_PERC":params["pruning_perc"]}
+  pruning_params["ZAGGED"] = params["zagged"]
 
   return resnet_run_loop.resnet_model_fn(features, labels, mode, ImagenetModel,
                                          resnet_size=params['resnet_size'],
