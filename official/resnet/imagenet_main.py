@@ -286,9 +286,7 @@ def imagenet_model_fn(features, labels, mode, params):
       num_images=_NUM_IMAGES['train'], boundary_epochs=boundary_epochs,
       decay_rates=decay_rates)
 
-
-  pruning_params = {"BLOCK_HEIGHT":params["block_height"],"BLOCK_WIDTH":params["block_width"],"PRUNING_PERC":params["pruning_perc"]}
-  pruning_params["ZAGGED"] = params["zagged"]
+  pruning_params = {"exp_dir":params["exp_dir"]}
 
   return resnet_run_loop.resnet_model_fn(features, labels, mode, ImagenetModel,
                                          resnet_size=params['resnet_size'],
@@ -298,9 +296,7 @@ def imagenet_model_fn(features, labels, mode, params):
                                          data_format=params['data_format'],
                                          version=params['version'],
                                          loss_filter_fn=None,
-                                         multi_gpu=params['multi_gpu'],
-					 pruning_params=pruning_params)
-
+                                         multi_gpu=params['multi_gpu'], pruning_params=pruning_params)
 
 def main(argv):
   parser = resnet_run_loop.ResnetArgParser(

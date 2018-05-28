@@ -243,13 +243,9 @@ def resnet_model_fn(features, labels, mode, model_class,
   # **********************************************************
   # Loading mask dictionary
   import pickle
-
-  BLOCK_HEIGHT = pruning_params["BLOCK_HEIGHT"]
-  BLOCK_WIDTH = pruning_params["BLOCK_WIDTH"]
-  PRUNING_PERC = pruning_params["PRUNING_PERC"]
-  ZAGGED = pruning_params["ZAGGED"]
-  
-  fpath =  "masks/resnet50_%d_%d_%.2f_%r_mask.pickle"%(BLOCK_HEIGHT, BLOCK_WIDTH, PRUNING_PERC, ZAGGED)
+  import os
+  exp_dir = pruning_params["exp_dir"] 
+  fpath =  os.path.join(exp_dir,"mask.pickle")
   mask_file = open(fpath, 'rb')
   mask_dict = pickle.load(mask_file)
   mask_file.close()
@@ -364,11 +360,8 @@ def resnet_main(flags, model_function, input_function):
           'batch_size': flags.batch_size,
           'multi_gpu': flags.multi_gpu,
           'version': flags.version,
-	  	  'block_height': flags.block_height,
-		  'block_width' : flags.block_width,
-          'pruning_perc': flags.pruning_perc,
 	  	  'decay_scale' : flags.decay_scale,
-		  'zagged' : flags.zagged,
+		  'exp_dir' : flags.exp_dir
       })
 
   
@@ -441,30 +434,15 @@ class ResnetArgParser(argparse.ArgumentParser):
         metavar='<RS>' if resnet_size_choices is None else None
     )
  
-    # New arguments
+	# New arguments
     self.add_argument(
-	'--block_height', '-bh', type=int, default=1,
-	help="Block height in pruning"
-    )
-
-    self.add_argument(
-	'--block_width', '-bw', type=int, default=1,
-	help="Block width in pruning"
-    )
-
-    self.add_argument(
-	'--zagged', action="store_true",
-	help="Is block zagged?"
-    )
-
-    self.add_argument(
-	'--pruning_perc', '-sp', type=float, default=90.0,
-	help="Pruning percentage in Convolution layers"
-    )
-
-    self.add_argument(
-	'--decay_scale', '-bd', type=float, default=1,
+	'--decay_scale', '-ds', type=float, default=1,
 	help="Base learning rate for retraining sparse CNNs"
+    )
+
+    self.add_argument(
+	'--exp_dir', type=str, default=None,
+	help="Experiment directory"
     )
 
 
